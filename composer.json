@@ -1,0 +1,21 @@
+{
+    "name": "asakasinsky/yii2-cart",
+    "description": "Yii2 Cart extension",
+    "type": "yii2-extension",
+    "keywords": ["yii2","extension","asakasinky","cart"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Vasily Asakasinsky",
+            "email": "asakasinsky@gmail.com"
+        }
+    ],
+    "require": {
+        "yiisoft/yii2": "*",
+    },
+    "autoload": {
+        "psr-4": {
+            "asakasinsky\\cart\\": ""
+        }
+    }
+}

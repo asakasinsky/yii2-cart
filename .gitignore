@@ -1,0 +1,14 @@
+.DS_Store
+*.pyc
+*.pyo
+.installed.cfg
+dist
+
+
+
+*~
+*.un~
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
