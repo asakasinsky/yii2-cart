@@ -3,6 +3,8 @@
 namespace  asakasinsky\cart\models;
 
 use Yii;
+use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
 /**
  * This is the model class for table "{{%cart_item}}".
@@ -29,7 +31,7 @@ use Yii;
  *
  * @property CartOrder $order
  */
-class CartItem extends \yii\db\ActiveRecord
+class CartItem extends ActiveRecord
 {
     /**
      * @inheritdoc
@@ -39,13 +41,28 @@ class CartItem extends \yii\db\ActiveRecord
         return '{{%cart_item}}';
     }
 
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::className(),
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at', 'updated_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+                // if you're using datetime instead of UNIX timestamp:
+                // 'value' => new Expression('NOW()'),
+            ],
+        ];
+    }
+
     /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['product_id', 'color_id', 'size_id', 'order_id', 'created_at', 'updated_at'], 'required'],
+            [['product_id', 'color_id', 'size_id', 'order_id'], 'required'],
             [['product_id', 'qty', 'total', 'color_id', 'size_id', 'size_cost', 'only_all_sizes', 'order_id', 'created_at', 'updated_at'], 'integer'],
             [['product_name', 'product_image', 'product_type', 'color_image', 'color_name', 'size_name'], 'string', 'max' => 128],
             [['product_url'], 'string', 'max' => 1024],

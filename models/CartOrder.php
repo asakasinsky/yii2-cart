@@ -3,6 +3,8 @@
 namespace  asakasinsky\cart\models;
 
 use Yii;
+use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
 /**
  * This is the model class for table "{{%cart_order}}".
@@ -33,7 +35,7 @@ use Yii;
  *
  * @property CartItem[] $cartItems
  */
-class CartOrder extends \yii\db\ActiveRecord
+class CartOrder extends ActiveRecord
 {
     /**
      * @inheritdoc
@@ -43,13 +45,27 @@ class CartOrder extends \yii\db\ActiveRecord
         return '{{%cart_order}}';
     }
 
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::className(),
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at', 'updated_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+                // if you're using datetime instead of UNIX timestamp:
+                // 'value' => new Expression('NOW()'),
+            ],
+        ];
+    }
+
     /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['device_id', 'created_at', 'updated_at'], 'required'],
             [['device_id', 'status', 'status_timestamp', 'total', 'ip', 'created_at', 'updated_at'], 'integer'],
             [['comment', 'note', 'status_message'], 'string'],
             [['date', 'payment_date'], 'safe'],
