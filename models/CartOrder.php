@@ -1,15 +1,16 @@
 <?php
 
-namespace  asakasinsky\cart\models;
+namespace asakasinsky\cart\models;
 
 use Yii;
 use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
 
 /**
- * This is the model class for table "{{%cart_order}}".
+ * This is the model class for table "c_cart_order".
  *
  * @property integer $id
+ * @property integer $user_id
  * @property integer $device_id
  * @property string $name
  * @property string $phone
@@ -20,6 +21,7 @@ use yii\behaviors\TimestampBehavior;
  * @property integer $status
  * @property integer $status_timestamp
  * @property integer $total
+ * @property integer $qty
  * @property string $delivery
  * @property string $recipient_name
  * @property string $recipient_passport
@@ -66,9 +68,10 @@ class CartOrder extends ActiveRecord
     public function rules()
     {
         return [
-            [['device_id', 'status', 'status_timestamp', 'total', 'ip', 'created_at', 'updated_at'], 'integer'],
+            [['user_id', 'device_id', 'status', 'status_timestamp', 'total', 'qty', 'ip', 'created_at', 'updated_at'], 'integer'],
             [['comment', 'note', 'status_message'], 'string'],
             [['date', 'payment_date'], 'safe'],
+//            [['created_at', 'updated_at'], 'required'],
             [['name', 'phone', 'email', 'delivery', 'order_file', 'status_attachment'], 'string', 'max' => 255],
             [['guid'], 'string', 'max' => 36],
             [['recipient_name', 'recipient_passport', 'recipient_address'], 'string', 'max' => 512],
@@ -82,6 +85,7 @@ class CartOrder extends ActiveRecord
     {
         return [
             'id' => 'ID',
+            'user_id' => 'User ID',
             'device_id' => 'Device ID',
             'name' => 'Name',
             'phone' => 'Phone',
@@ -92,6 +96,7 @@ class CartOrder extends ActiveRecord
             'status' => 'Status',
             'status_timestamp' => 'Status Timestamp',
             'total' => 'Total',
+            'qty' => 'Qty',
             'delivery' => 'Delivery',
             'recipient_name' => 'Recipient Name',
             'recipient_passport' => 'Recipient Passport',

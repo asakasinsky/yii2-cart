@@ -5,12 +5,16 @@ namespace asakasinsky\cart;
 use Yii;
 use yii\base\Component;
 use \yii\db\Query;
+use \yii\db\Expression;
 use asakasinsky\cart\models\CartItem;
 use asakasinsky\cart\models\CartOrder;
+use common\models\User;
+use asakasinsky\cart\Device;
 
 class Cart extends Component
 {
 
+    public $device = null;
     public $itemsTableName = '{{%cart_items}}';
     public $ordersTableName = '{{%cart_orders}}';
     public $items = [];
@@ -23,12 +27,13 @@ class Cart extends Component
 
     public function __construct()
     {
+        $this->device = new Device();
         $this->cartContents = $this->get();
     }
 
     private function _sortByOrder($a, $b)
     {
-        return strcmp((int)  $a['order'], (int)  $b['order']);
+        return strcmp((int)$a['order'], (int)$b['order']);
     }
 
     private function _sortById($a, $b)
@@ -36,40 +41,20 @@ class Cart extends Component
         return strcmp($a['id'], $b['id']);
     }
 
-
-    /**
-     * Create GUID function
-     * http://en.wikipedia.org/wiki/Globally_unique_identifier
-     *
-     * @param  string $namespace  for more enthropy
-     * @return string $guid       00000000-0000-0000-0000-000000000000
-     */
-    private function createGuid ($namespace='')
+    public function mail()
     {
-        static $guid = '';
-        $uid = uniqid($namespace, true);
-        $allowed_keys = array(
-            'REQUEST_TIME',
-            'HTTP_USER_AGENT',
-            'LOCAL_ADDR',
-            'REMOTE_ADDR',
-            'REMOTE_PORT'
-        );
-        $request_data = array_intersect_key(
-            $_SERVER,
-            array_fill_keys(
-                $allowed_keys,
-                null
-            )
-        );
-        $data = implode('', $request_data);
-        $hash = strtoupper(hash('ripemd128', $uid . $guid . md5($data)));
-        $guid = substr($hash,  0,  8).
-            '-'.substr($hash,  8,  4).
-            '-'.substr($hash, 12,  4).
-            '-'.substr($hash, 16,  4).
-            '-'.substr($hash, 20, 12);
-        return $guid;
+        $order = CartOrder::find()
+            ->where('id = :id ', ['id' => 10])
+            ->asArray()
+            ->one();
+
+        $message = Yii::$app->mailer->compose('contact/html', [
+            'order' => $order
+        ])
+            ->setFrom('asakasinsky@gmail.com')
+            ->setTo('adben@yandex.ru')
+            ->setSubject('test mail')
+            ->send();
     }
 
     public function get()
@@ -78,13 +63,11 @@ class Cart extends Component
         $cartItems = [];
         $resultSet = [];
         $cartGuid = Yii::$app->session->get('cartGuid');
-        if ($cartGuid)
-        {
+        if ($cartGuid) {
             $order = CartOrder::find()
                 ->where('guid = :guid ', ['guid' => $cartGuid])
                 ->one();
-            if ($order)
-            {
+            if ($order) {
 //                $resultSet = CartItem::find()
 //                    ->where('order_id = :order_id ', ['order_id' => $order->id])
 ////                    ->asArray()
@@ -119,20 +102,19 @@ class Cart extends Component
                     ->where('{{%cart_item}}.order_id = :order_id', ['order_id' => $order->id])
                     ->all();
             }
-            foreach ($resultSet as &$row)
-            {
-                $row['id'] = (int) $row['id'];
-                $row['productId'] = (int) $row['productId'];
-                $row['qty'] = (int) $row['qty'];
-                $row['total'] = (int) $row['total'];
-                $row['colorId'] = (int) $row['colorId'];
-                $row['sizeId'] = (int) $row['sizeId'];
-                $row['sizeCost'] = (int) $row['sizeCost'];
-                $row['orderId'] = (int) $row['orderId'];
-                $row['order'] = (int) $row['order'];
-                $row['createdAt'] = (int) $row['createdAt'];
-                $row['updatedAt'] = (int) $row['updatedAt'];
-                $row['onlyAllSizes'] = (int) $row['onlyAllSizes'];
+            foreach ($resultSet as &$row) {
+                $row['id'] = (int)$row['id'];
+                $row['productId'] = (int)$row['productId'];
+                $row['qty'] = (int)$row['qty'];
+                $row['total'] = (int)$row['total'];
+                $row['colorId'] = (int)$row['colorId'];
+                $row['sizeId'] = (int)$row['sizeId'];
+                $row['sizeCost'] = (int)$row['sizeCost'];
+                $row['orderId'] = (int)$row['orderId'];
+                $row['order'] = (int)$row['order'];
+                $row['createdAt'] = (int)$row['createdAt'];
+                $row['updatedAt'] = (int)$row['updatedAt'];
+                $row['onlyAllSizes'] = (int)$row['onlyAllSizes'];
 
                 $cartItems[$row['productId']]['id'] = $row['productId'];
                 $cartItems[$row['productId']]['productId'] = $row['productId'];
@@ -150,31 +132,27 @@ class Cart extends Component
             $orderRows = [];
 
 
-            foreach($cartItems as &$item)
-            {
-                if ((int) $item['onlyAllSizes'] === 1)
-                {
-                    $rows = array_filter($resultSet, function ($row) use($item) {
+            foreach ($cartItems as &$item) {
+                if ((int)$item['onlyAllSizes'] === 1) {
+                    $rows = array_filter($resultSet, function ($row) use ($item) {
                         return $row['productId'] === $item['productId'];
                     });
                     $rows = array_reverse(array_values($rows));
                     usort($rows, array($this->className(), '_sortByOrder'));
 
                     $byColors = [];
-                    foreach ($rows as $_row)
-                    {
+                    foreach ($rows as $_row) {
                         $byColors[$_row['colorId']][] = $_row;
                     }
 
-                    foreach ($byColors as $color)
-                    {
+                    foreach ($byColors as $color) {
                         $firstRow = reset($color);
-                        $firstName =$firstRow['sizeName'];
+                        $firstName = $firstRow['sizeName'];
                         $arrKeys = array_keys($color);
                         $lastName = $color[end(
                             $arrKeys
                         )]['sizeName'];
-                        $firstRow['sizeName'] = $firstName .' - '. $lastName;
+                        $firstRow['sizeName'] = $firstName . ' - ' . $lastName;
                         $prices = array_column($color, 'sizeCost');
                         $firstRow['sizeCost'] = array_sum($prices);
                         $firstRow['sizeId'] = 'all';
@@ -182,10 +160,8 @@ class Cart extends Component
                         $item['sizes'][$firstRow['id']] = $firstRow;
                     }
                     $item['sizes'] = array_reverse(array_values($item['sizes']));
-                }
-                else
-                {
-                    $rows = array_filter($resultSet, function ($row) use($item) {
+                } else {
+                    $rows = array_filter($resultSet, function ($row) use ($item) {
                         return $row['productId'] === $item['productId'];
                     });
                     $rows = array_reverse(array_values($rows));
@@ -196,11 +172,10 @@ class Cart extends Component
 
                 $item['total'] = 0;
                 $item['qty'] = 0;
-                foreach ($item['sizes'] as &$size)
-                {
-                    $size['id'] = $size['productId'] .'_'. $size['colorId'] .'_'. $size['sizeId'];
+                foreach ($item['sizes'] as &$size) {
+                    $size['id'] = $size['productId'] . '_' . $size['colorId'] . '_' . $size['sizeId'];
                     $size['total'] = $size['qty'] * $size['sizeCost'];
-                    $item['total'] = $item['total'] +  $size['total'];
+                    $item['total'] = $item['total'] + $size['total'];
                     $item['qty'] = $item['qty'] + $size['qty'];
                 }
                 $item['colorId'] = null;
@@ -212,15 +187,115 @@ class Cart extends Component
             }
 
             $this->cartContents['rows'] = $orderRows;
-            $this->cartContents['cartTotal'] = $order->total;
-            $this->cartContents['qtyTotal'] = $order->qty;
+            $this->cartContents['cartTotal'] = ($order) ? $order->total : 0;
+            $this->cartContents['qtyTotal'] = ($order) ? $order->qty : 0;
             $this->cartContents['items'] = $cartItems;
         }
         return $this->cartContents;
     }
 
 
-    public function remove($items=[])
+    public function checkout($orderData = [])
+    {
+        $user = null;
+        $userId = Yii::$app->session->get('userId');
+
+        if (!$userId) {
+            // Если в сессии нет сохранённого userId, то
+            // ищем среди созданных аккаунтов по переданному email.
+            $user = User::find()
+                ->where('email = :email', ['email' => $orderData['email']])
+                ->one();
+
+            if (!$user) {
+                $user = new User();
+                $user->email = $orderData['email'];
+                $user->phone = $orderData['phone'];
+                $user->name = $orderData['name'];
+                if (!$user->save()) {
+                    Yii::error(
+                        $user->getErrors(),
+                        __LINE__
+                    );
+                } else {
+                    $userId = $user->id;
+                    Yii::$app->session->set('userId', $userId);
+                }
+            } else {
+                $userId = $user->id;
+                Yii::$app->session->set('userId', $userId);
+            }
+            $this->device->linkUser($userId);
+        }
+
+        $staticFolder = Yii::getAlias('@staticFolder');
+        $result = [
+            'result' => false
+        ];
+        $cartGuid = Yii::$app->session->get('cartGuid');
+
+        $order = CartOrder::find()
+            ->where('guid = :guid ', ['guid' => $cartGuid])
+            ->one();
+        if ($order && $orderData) {
+            $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
+            $absolute_order_path = $staticFolder . '/' . $relative_order_path;
+
+            $relative_order_file = $relative_order_path . '/' . $cartGuid . '.html';
+            $absolute_order_file = $absolute_order_path . '/' . $cartGuid . '.html';
+
+
+            if (!file_exists($absolute_order_path)) {
+                mkdir($absolute_order_path, 0755, true);
+            }
+
+            $content = '' . $orderData['name'];
+            $fp = fopen($absolute_order_file, 'wb');
+            fwrite($fp, $content);
+            fclose($fp);
+
+            if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+                $ip = $_SERVER['HTTP_CLIENT_IP'];
+            } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+            } else {
+                $ip = $_SERVER['REMOTE_ADDR'];
+            }
+
+            $order->status = 1;
+            $order->phone = $orderData['phone'];
+            $order->email = $orderData['email'];
+            $order->name = $orderData['name'];
+            $order->delivery = $orderData['delivery'];
+            $order->recipient_name = $orderData['recipient_name'];
+            $order->recipient_passport = $orderData['recipient_passport'];
+            $order->recipient_address = $orderData['recipient_address'];
+            $order->comment = $orderData['comment'];
+            $order->date = new Expression('NOW()');
+//            $order->ip = new Expression('INET_ATON(:ip)',['ip' => $ip]);
+            $order->ip = ip2long($ip);
+            $order->order_file = $relative_order_file;
+            $order->user_id = $userId;
+
+            if (!$order->save()) {
+                Yii::error(
+                    $order->getErrors(),
+                    __LINE__
+                );
+                $result['result'] = 'error';
+                return $result;
+            }
+
+            // Заказ оформлен, очищаем сохранённую GUID заказа
+            Yii::$app->session->remove('cartGuid');
+            $result['email'] = $orderData['email'];
+            $result['result'] = 'ok';
+            $result['orderLink'] = '/' . $relative_order_file;
+        }
+        return $result;
+    }
+
+    public function remove($items = [])
     {
         $result = false;
         $cartGuid = Yii::$app->session->get('cartGuid');
@@ -228,7 +303,7 @@ class Cart extends Component
             ->where('guid = :guid ', ['guid' => $cartGuid])
             ->one();
         if ($order && $items) {
-            foreach($items as $item) {
+            foreach ($items as $item) {
                 if (isset($item['rowId'])) {
                     $rowsCount = CartItem::deleteAll(
                         'row_id = :row_id AND order_id = :order_id',
@@ -244,48 +319,27 @@ class Cart extends Component
         ];
     }
 
-    public function put($items=[])
+    public function put($items = [])
     {
         $order = null;
 
         $cartGuid = Yii::$app->session->get('cartGuid');
-        $deviceId = Yii::$app->session->get('deviceId');
 
-        if (! $deviceId)
-        {
-            $deviceId = $this->createGuid();
-            Yii::$app->session->set('deviceId', $deviceId);
-        }
-
-        if ($cartGuid)
-        {
+        if ($cartGuid) {
             $order = CartOrder::find()
                 ->where('guid = :guid ', ['guid' => $cartGuid])
                 ->one();
-            if (! $order)
-            {
-                $order = new CartOrder();
-                $order->guid = $cartGuid;
-                $order->device_id = null;
-                if (! $order->save())
-                {
-                    Yii::error(
-                        $order->getErrors(),
-                        __LINE__
-                    );
-                }
-
-            }
         }
-        if (! $order || ! $cartGuid)
-        {
-            $cartGuid = $this->createGuid();
+        if (!$order || !$cartGuid) {
+            $cartGuid = Utils::createGuid();
             Yii::$app->session->set('cartGuid', $cartGuid);
             $order = new CartOrder();
+            $ts = time();
+            $order->created_at = $ts;
+            $order->updated_at = $ts;
             $order->guid = $cartGuid;
-            $order->device_id = null;
-            if (! $order->save())
-            {
+            $order->device_id = $this->device->id;
+            if (!$order->save()) {
                 Yii::error(
                     $order->getErrors(),
                     __LINE__
@@ -294,11 +348,9 @@ class Cart extends Component
         }
         $rows = [];
 
-        foreach($items as $item)
-        {
-            if (! isset($item['rowId']))
-            {
-                $rowId =  $this->createGuid($cartGuid);
+        foreach ($items as $item) {
+            if (!isset($item['rowId'])) {
+                $rowId = Utils::createGuid($cartGuid);
                 $item['rowId'] = $rowId;
                 $item['orderId'] = $order->id;
                 $this->insertRow($item);
@@ -307,9 +359,7 @@ class Cart extends Component
                     'productId' => $item['productId'],
                     'id' => $item['id']
                 ];
-            }
-            else
-            {
+            } else {
                 if ($item['qty'] <= 0) {
                     $rowsCount = CartItem::deleteAll(
                         'row_id = :row_id AND order_id = :order_id',
@@ -334,7 +384,7 @@ class Cart extends Component
 
     protected function updateOrderTotal($orderId)
     {
-        $orderId = (int) $orderId;
+        $orderId = (int)$orderId;
         $resultSet = (new Query())
             ->select([
                 'SUM(total) AS total',
@@ -356,8 +406,8 @@ class Cart extends Component
     protected function insertRow($rowData)
     {
         $idParts = explode('_', $rowData['id']);
-        $productId = (int) $idParts[0];
-        $colorId = (int) $idParts[1];
+        $productId = (int)$idParts[0];
+        $colorId = (int)$idParts[1];
         $sizeId = $idParts[2];
 
         $resultSet = (new Query())
@@ -366,39 +416,35 @@ class Cart extends Component
                 '{{%product_size}}.`id`                 AS `size_id`',
                 '{{%product_size}}.`price`              AS `size_cost`',
                 '{{%product_size}}.`qty`                AS `size_qty`',
-                'CONCAT("'. Yii::$app->homeUrl .'/catalog/", {{%product}}.slug, ".html") AS url',
+                'CONCAT("' . Yii::$app->homeUrl . '/catalog/", {{%product}}.slug, ".html") AS url',
                 '{{%product_type_size}}.`name`          AS `size_name`',
                 '{{%product_type_size}}.`id`            AS `size_order`',
             ])
             ->from('{{%product}}')
             ->leftJoin('{{%product_size}}', '{{%product_size}}.product_id = {{%product}}.id')
             ->leftJoin('{{%product_type_size}}', '{{%product_type_size}}.id = {{%product_size}}.type_size_id')
-
             ->where('{{%product_size}}.product_id = :product_id', ['product_id' => $productId]);
 
-        if ($colorId)
-        {
+        if ($colorId) {
             $resultSet = $resultSet->andWhere('{{%product_size}}.color_id = :colorId', ['colorId' => $colorId]);
         }
 
-        if ($sizeId !== 'all')
-        {
-            $sizeId = (int) $sizeId;
+        if ($sizeId !== 'all') {
+            $sizeId = (int)$sizeId;
             $resultSet = $resultSet
                 ->andWhere('{{%product_size}}.id = :sizeId', ['sizeId' => $sizeId]);
         }
         $resultSet = $resultSet
             ->andWhere('{{%product_size}}.price != 0')
             ->all();
-        foreach($resultSet as $row)
-        {
+        foreach ($resultSet as $row) {
             $itemRow = new CartItem();
-            $itemRow->product_id = (int) $rowData['productId'];
+            $itemRow->product_id = (int)$rowData['productId'];
             $itemRow->product_name = $rowData['productName'];
             $itemRow->product_image = $rowData['productImage'];
             $itemRow->product_url = $row['url'];
-            $itemRow->qty = (int) $rowData['qty'];
-            $itemRow->total = (int) $rowData['qty'] * (int) $row['size_cost'];
+            $itemRow->qty = (int)$rowData['qty'];
+            $itemRow->total = (int)$rowData['qty'] * (int)$row['size_cost'];
 
             $itemRow->color_id = $colorId;
             $itemRow->color_image = $rowData['colorImage'];
@@ -406,14 +452,13 @@ class Cart extends Component
 
             $itemRow->size_id = $row['size_id'];
             $itemRow->size_name = $row['size_name'];
-            $itemRow->size_cost = (int) $row['size_cost'];
+            $itemRow->size_cost = (int)$row['size_cost'];
 
-            $itemRow->only_all_sizes = (int) $row['only_all_sizes'];
+            $itemRow->only_all_sizes = (int)$row['only_all_sizes'];
             $itemRow->row_id = $rowData['rowId'];
             $itemRow->order_id = $rowData['orderId'];
 
-            if (! $itemRow->save())
-            {
+            if (!$itemRow->save()) {
                 Yii::error(
                     $itemRow->getErrors(),
                     __LINE__
@@ -425,17 +470,15 @@ class Cart extends Component
 
     protected function changeQtyRow($item)
     {
-        $qty = (int) $item['qty'];
+        $qty = (int)$item['qty'];
         $rows = CartItem::find()
             ->where('row_id = :row_id ', ['row_id' => $item['rowId']])
             ->andWhere('order_id = :order_id ', ['order_id' => $item['orderId']])
             ->all();
-        foreach ($rows as $row)
-        {
+        foreach ($rows as $row) {
             $row->qty = $qty;
-            $row->total = (int) $row['qty'] * (int) $row['size_cost'];
-            if (! $row->save())
-            {
+            $row->total = (int)$row['qty'] * (int)$row['size_cost'];
+            if (!$row->save()) {
                 Yii::error(
                     $row->getErrors(),
                     __LINE__
