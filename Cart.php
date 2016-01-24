@@ -55,9 +55,9 @@ class Cart extends Component
         /** @var \yii\swiftmailer\Mailer $mailer */
         $mailer = Yii::$app->mailer;
 
-        $from = 'asakasinsky@gmail.com';
+        $from = 'no-reply@tokana.ru';
         $replyTo = 'tex-collection@yandex.ru';
-        $returnPath = 'asakasinsky@gmail.com';
+        $returnPath = 'info@tokana.ru';
 
         $message = Yii::$app->mailer->compose()
             ->setFrom($from)
@@ -66,7 +66,7 @@ class Cart extends Component
             ->setHtmlBody($htmlMessage);
         $headers = $message->getSwiftMessage()->getHeaders();
 
-        if (isset($recepient['guid']) && $recepient['guid']) {
+        if (isset($recepient['guid'])) {
             $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain').'/mail/unsubscribe/'. $recepient['guid']);
         }
         if ($listId) {
@@ -271,17 +271,6 @@ class Cart extends Component
                 $item['productImage'] = str_replace('60__', '250x250__', $item['productImage']);
             }
 
-            $htmlMessage =  $twig->render(
-                'order/confirm.twig',
-                array(
-                    'order' => $order,
-                    'orderDate' => date("d-m-Y", strtotime($order->date)),
-                    'siteName' => Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain'),
-                    'user' => $user,
-                    'items' => $items['items']
-                )
-            );
-
             $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
             $absolute_order_path = $staticFolder . '/' . $relative_order_path;
 
@@ -293,10 +282,7 @@ class Cart extends Component
                 mkdir($absolute_order_path, 0755, true);
             }
 
-            $content = $htmlMessage;
-            $fp = fopen($absolute_order_file, 'wb');
-            fwrite($fp, $content);
-            fclose($fp);
+
 
             if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
                 $ip = $_SERVER['HTTP_CLIENT_IP'];
@@ -329,6 +315,23 @@ class Cart extends Component
                 $result['result'] = 'error';
                 return $result;
             }
+
+
+            $htmlMessage =  $twig->render(
+                'order/confirm.twig',
+                array(
+                    'order' => $order,
+                    'orderDate' => date("d-m-Y", strtotime($order->date)),
+                    'siteName' => Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain'),
+                    'user' => $user,
+                    'items' => $items['items']
+                )
+            );
+
+            $content = $htmlMessage;
+            $fp = fopen($absolute_order_file, 'wb');
+            fwrite($fp, $content);
+            fclose($fp);
 
             $this->sendMail([
                 'email' => $order->email,
