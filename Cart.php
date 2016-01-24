@@ -10,6 +10,9 @@ use asakasinsky\cart\models\CartItem;
 use asakasinsky\cart\models\CartOrder;
 use common\models\User;
 use asakasinsky\cart\Device;
+//use yii\twig\ViewRenderer;
+
+//use yii\twig;
 
 class Cart extends Component
 {
@@ -43,36 +46,51 @@ class Cart extends Component
 
     public function mail()
     {
-        $order = CartOrder::find()
-            ->where('id = :id ', ['id' => 10])
-            ->asArray()
-            ->one();
 
-        $message = Yii::$app->mailer->compose('contact/html', [
-            'order' => $order
-        ])
-            ->setFrom('asakasinsky@gmail.com')
-            ->setTo('adben@yandex.ru')
-            ->setSubject('test mail')
-            ->send();
+
     }
 
-    public function get()
+    public function sendMail($recepient, $subject, $htmlMessage, $listId=null)
+    {
+        /** @var \yii\swiftmailer\Mailer $mailer */
+        $mailer = Yii::$app->mailer;
+
+        $from = 'asakasinsky@gmail.com';
+        $replyTo = 'tex-collection@yandex.ru';
+        $returnPath = 'asakasinsky@gmail.com';
+
+        $message = Yii::$app->mailer->compose()
+            ->setFrom($from)
+            ->setTo($recepient['email'])
+            ->setSubject($subject)
+            ->setHtmlBody($htmlMessage);
+        $headers = $message->getSwiftMessage()->getHeaders();
+
+        if (isset($recepient['guid']) && $recepient['guid']) {
+            $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain').'/mail/unsubscribe/'. $recepient['guid']);
+        }
+        if ($listId) {
+            $headers->addTextHeader('List-id', 'order-'. $listId);
+        }
+
+        $headers->addTextHeader('Reply-To', $replyTo);
+        $headers->addTextHeader('Return-Path', $returnPath);
+        $message->send();
+    }
+
+    public function get($cartGuid=null)
     {
         $order = null;
         $cartItems = [];
         $resultSet = [];
-        $cartGuid = Yii::$app->session->get('cartGuid');
+        if (! $cartGuid) {
+            $cartGuid = Yii::$app->session->get('cartGuid');
+        }
         if ($cartGuid) {
             $order = CartOrder::find()
                 ->where('guid = :guid ', ['guid' => $cartGuid])
                 ->one();
             if ($order) {
-//                $resultSet = CartItem::find()
-//                    ->where('order_id = :order_id ', ['order_id' => $order->id])
-////                    ->asArray()
-//                    ->all();
-
                 $resultSet = (new Query())
                     ->select([
                         '{{%cart_item}}.`id` AS id',
@@ -120,6 +138,7 @@ class Cart extends Component
                 $cartItems[$row['productId']]['productId'] = $row['productId'];
                 $cartItems[$row['productId']]['productImage'] = $row['productImage'];
                 $cartItems[$row['productId']]['productName'] = $row['productName'];
+                $cartItems[$row['productId']]['productUrl'] = $row['productUrl'];
                 $cartItems[$row['productId']]['colorId'] = ($row['colorId'] === 0) ? null : $row['colorId'];
                 $cartItems[$row['productId']]['colorImage'] = $row['colorImage'];
                 $cartItems[$row['productId']]['cost'] = $row['sizeCost'];
@@ -194,39 +213,42 @@ class Cart extends Component
         return $this->cartContents;
     }
 
-
     public function checkout($orderData = [])
     {
         $user = null;
         $userId = Yii::$app->session->get('userId');
 
-        if (!$userId) {
-            // Если в сессии нет сохранённого userId, то
-            // ищем среди созданных аккаунтов по переданному email.
-            $user = User::find()
-                ->where('email = :email', ['email' => $orderData['email']])
-                ->one();
+        $user = User::find();
 
-            if (!$user) {
-                $user = new User();
-                $user->email = $orderData['email'];
-                $user->phone = $orderData['phone'];
-                $user->name = $orderData['name'];
-                if (!$user->save()) {
-                    Yii::error(
-                        $user->getErrors(),
-                        __LINE__
-                    );
-                } else {
-                    $userId = $user->id;
-                    Yii::$app->session->set('userId', $userId);
-                }
+        if (!$userId) {
+            $user = $user->where('email = :email', ['email' => $orderData['email']])
+                ->one();
+        } else {
+            $user = $user->where('id = :id', ['id' => $userId])
+                ->one();
+        }
+
+        if (!$user) {
+            $user = new User();
+            $user->email = $orderData['email'];
+            $user->phone = $orderData['phone'];
+            $user->name = $orderData['name'];
+            $user->guid = Utils::createGuid();
+            if (!$user->save()) {
+                Yii::error(
+                    $user->getErrors(),
+                    __LINE__
+                );
             } else {
                 $userId = $user->id;
                 Yii::$app->session->set('userId', $userId);
             }
-            $this->device->linkUser($userId);
+        } else {
+            $userId = $user->id;
+            Yii::$app->session->set('userId', $userId);
         }
+        $this->device->linkUser($userId);
+
 
         $staticFolder = Yii::getAlias('@staticFolder');
         $result = [
@@ -238,6 +260,28 @@ class Cart extends Component
             ->where('guid = :guid ', ['guid' => $cartGuid])
             ->one();
         if ($order && $orderData) {
+            $loader = new \Twig_Loader_Filesystem(Yii::getAlias('@common/mail'));
+            $twig = new \Twig_Environment($loader, array(
+                'cache' => Yii::getAlias('@runtime/Twig/cache'),
+                'auto_reload' => TRUE
+            ));
+            $items = $this->get($order->guid);
+
+            foreach ($items['items'] as &$item) {
+                $item['productImage'] = str_replace('60__', '250x250__', $item['productImage']);
+            }
+
+            $htmlMessage =  $twig->render(
+                'order/confirm.twig',
+                array(
+                    'order' => $order,
+                    'orderDate' => date("d-m-Y", strtotime($order->date)),
+                    'siteName' => Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain'),
+                    'user' => $user,
+                    'items' => $items['items']
+                )
+            );
+
             $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
             $absolute_order_path = $staticFolder . '/' . $relative_order_path;
 
@@ -249,7 +293,7 @@ class Cart extends Component
                 mkdir($absolute_order_path, 0755, true);
             }
 
-            $content = '' . $orderData['name'];
+            $content = $htmlMessage;
             $fp = fopen($absolute_order_file, 'wb');
             fwrite($fp, $content);
             fclose($fp);
@@ -285,6 +329,12 @@ class Cart extends Component
                 $result['result'] = 'error';
                 return $result;
             }
+
+            $this->sendMail([
+                'email' => $order->email,
+                'guid' => $user->guid,
+                'name' => $user->name
+            ], 'Ваш заказ принят', $htmlMessage, $order->guid);
 
             // Заказ оформлен, очищаем сохранённую GUID заказа
             Yii::$app->session->remove('cartGuid');
