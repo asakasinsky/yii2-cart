@@ -90,7 +90,10 @@ class Cart extends Component
             $order = CartOrder::find()
                 ->where('guid = :guid ', ['guid' => $cartGuid])
                 ->one();
-            if ($order) {
+            if (! $order) {
+                Yii::$app->session->remove('cartGuid');
+                return $this->cartContents;
+            }else {
                 $resultSet = (new Query())
                     ->select([
                         '{{%cart_item}}.`id` AS id',
