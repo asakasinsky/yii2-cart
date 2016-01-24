@@ -55,7 +55,7 @@ class Cart extends Component
         /** @var \yii\swiftmailer\Mailer $mailer */
         $mailer = Yii::$app->mailer;
 
-        $from = 'no-reply@tokana.ru';
+        $from = ['no-reply@tokana.ru' => 'ТОКАНА.РУ'];
         $replyTo = 'tex-collection@yandex.ru';
         $returnPath = 'info@tokana.ru';
 
@@ -270,6 +270,8 @@ class Cart extends Component
             foreach ($items['items'] as &$item) {
                 $item['productImage'] = str_replace('60__', '250x250__', $item['productImage']);
             }
+
+//            var_dump($user); die();
 
             $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
             $absolute_order_path = $staticFolder . '/' . $relative_order_path;
