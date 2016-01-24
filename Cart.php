@@ -50,14 +50,15 @@ class Cart extends Component
 
     }
 
-    public function sendMail($recepient, $subject, $htmlMessage, $listId=null)
+    public function sendMail($recepient, $replyTo, $subject, $htmlMessage, $listId=null)
     {
         /** @var \yii\swiftmailer\Mailer $mailer */
         $mailer = Yii::$app->mailer;
 
-        $from = ['no-reply@tokana.ru' => 'ТОКАНА.РУ'];
-        $replyTo = 'tex-collection@yandex.ru';
-        $returnPath = 'info@tokana.ru';
+        $from = [
+            Yii::$app->params['noReplyMail']['mail'] => Yii::$app->params['noReplyMail']['name']
+        ];
+        $returnPath = Yii::$app->params['commonMail']['mail'];
 
         $message = Yii::$app->mailer->compose()
             ->setFrom($from)
@@ -76,6 +77,10 @@ class Cart extends Component
         $headers->addTextHeader('Reply-To', $replyTo);
         $headers->addTextHeader('Return-Path', $returnPath);
         $message->send();
+
+
+
+
     }
 
     public function get($cartGuid=null)
@@ -339,10 +344,20 @@ class Cart extends Component
             fclose($fp);
 
             $this->sendMail([
-                'email' => $order->email,
-                'guid' => $user->guid,
-                'name' => $user->name
-            ], 'Ваш заказ принят', $htmlMessage, $order->guid);
+                    'email' => $order->email,
+                    'guid' => $user->guid,
+                    'name' => $user->name
+                ],
+                Yii::$app->params['replyToMail']['mail'],
+                'Ваш заказ принят', $htmlMessage, $order->guid);
+
+            $this->sendMail([
+                    'email' => Yii::$app->params['replyToMail']['mail'],
+                    'guid' => null,
+                    'name' => null
+                ],
+                $order->email,
+                'Поступил заказ', $htmlMessage);
 
             // Заказ оформлен, очищаем сохранённую GUID заказа
             Yii::$app->session->remove('cartGuid');
