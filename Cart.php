@@ -307,7 +307,8 @@ class Cart extends Component
             $order->recipient_passport = $orderData['recipient_passport'];
             $order->recipient_address = $orderData['recipient_address'];
             $order->comment = $orderData['comment'];
-            $order->date = new Expression('NOW()');
+            $order->date = date('Y-m-d H:i:s', time());
+//            $order->date = new Expression('NOW()');
 //            $order->ip = new Expression('INET_ATON(:ip)',['ip' => $ip]);
             $order->ip = ip2long($ip);
             $order->order_file = $relative_order_file;
@@ -327,7 +328,7 @@ class Cart extends Component
                 'order/confirm.twig',
                 array(
                     'order' => $order,
-                    'orderDate' => date("d-m-Y", strtotime($order->date)),
+                    'orderDate' => date('d-m-Y', strtotime($order->date)),
                     'siteName' => Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain'),
                     'user' => $user,
                     'items' => $items['items']
