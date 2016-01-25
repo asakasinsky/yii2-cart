@@ -77,10 +77,6 @@ class Cart extends Component
         $headers->addTextHeader('Reply-To', $replyTo);
         $headers->addTextHeader('Return-Path', $returnPath);
         $message->send();
-
-
-
-
     }
 
     public function get($cartGuid=null)
