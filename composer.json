@@ -1,13 +1,20 @@
 {
-    "name": "asakasinsky/petrovich-php",
-    "description": "",
-    "type": "",
-    "license": "",
-    "version": "master",
-    "authors": [],
+    "name": "asakasinsky/yii2-cart",
+    "description": "Yii2 Cart extension",
+    "type": "yii2-extension",
+    "keywords": ["yii2", "extension", "asakasinky", "cart"],
+    "license": "MIT",
+    "authors": [{
+        "name": "Vasily Asakasinsky",
+        "email": "asakasinsky@gmail.com"
+    }],
+    "require": {
+        "yiisoft/yii2": "*",
+        "twig/twig": "~1.0"
+    },
     "autoload": {
         "psr-4": {
-            "asakasinsky\\petrovich\\": ""
+            "asakasinsky\\cart\\": ""
         }
     }
 }
