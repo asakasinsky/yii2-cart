@@ -28,6 +28,8 @@ use yii\behaviors\TimestampBehavior;
  * @property integer $order_id
  * @property integer $created_at
  * @property integer $updated_at
+ * @property string $manufacture
+ * @property string $manufacture_sku
  *
  * @property CartOrder $order
  */
@@ -67,6 +69,7 @@ class CartItem extends ActiveRecord
             [['product_name', 'product_image', 'product_type', 'color_image', 'color_name', 'size_name'], 'string', 'max' => 128],
             [['product_url'], 'string', 'max' => 1024],
             [['row_id'], 'string', 'max' => 36],
+            [['manufacture', 'manufacture_sku'], 'string', 'max' => 512],
             [['order_id'], 'exist', 'skipOnError' => true, 'targetClass' => CartOrder::className(), 'targetAttribute' => ['order_id' => 'id']],
         ];
     }
@@ -96,9 +99,10 @@ class CartItem extends ActiveRecord
             'order_id' => 'Order ID',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
+            'manufacture' => 'Manufacture',
+            'manufacture_sku' => 'Manufacture Sku',
         ];
     }
-
     /**
      * @return \yii\db\ActiveQuery
      */
