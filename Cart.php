@@ -10,6 +10,7 @@ use asakasinsky\cart\models\CartItem;
 use asakasinsky\cart\models\CartOrder;
 use common\models\User;
 use asakasinsky\cart\Device;
+
 //use yii\twig\ViewRenderer;
 
 //use yii\twig;
@@ -50,7 +51,7 @@ class Cart extends Component
 
     }
 
-    public function sendMail($recepient, $replyTo, $subject, $htmlMessage, $listId=null)
+    public function sendMail($recepient, $replyTo, $subject, $htmlMessage, $listId = null)
     {
         /** @var \yii\swiftmailer\Mailer $mailer */
         $mailer = Yii::$app->mailer;
@@ -68,10 +69,10 @@ class Cart extends Component
         $headers = $message->getSwiftMessage()->getHeaders();
 
         if (isset($recepient['guid'])) {
-            $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain').'/mail/unsubscribe/'. $recepient['guid']);
+            $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') . '://' . Yii::getAlias('@domain') . '/mail/unsubscribe/' . $recepient['guid']);
         }
         if ($listId) {
-            $headers->addTextHeader('List-id', 'order-'. $listId);
+            $headers->addTextHeader('List-id', 'order-' . $listId);
         }
 
         $headers->addTextHeader('Reply-To', $replyTo);
@@ -79,22 +80,23 @@ class Cart extends Component
         $message->send();
     }
 
-    public function get($cartGuid=null)
+    public function get($cartGuid = null)
     {
         $order = null;
         $cartItems = [];
         $resultSet = [];
-        if (! $cartGuid) {
+
+        if (!$cartGuid) {
             $cartGuid = Yii::$app->session->get('cartGuid');
         }
         if ($cartGuid) {
             $order = CartOrder::find()
                 ->where('guid = :guid ', ['guid' => $cartGuid])
                 ->one();
-            if (! $order) {
+            if (!$order) {
                 Yii::$app->session->remove('cartGuid');
                 return $this->cartContents;
-            }else {
+            } else {
                 $resultSet = (new Query())
                     ->select([
                         '{{%cart_item}}.`id` AS id',
@@ -102,6 +104,8 @@ class Cart extends Component
                         '{{%cart_item}}.`product_name` AS productName',
                         '{{%cart_item}}.`product_image` AS productImage',
                         '{{%cart_item}}.`product_type` AS productType',
+                        '{{%cart_item}}.`manufacture` AS manufacture',
+                        '{{%cart_item}}.`manufacture_sku` AS manufactureSku',
                         '{{%cart_item}}.`product_url` AS productUrl',
                         '{{%cart_item}}.`qty` AS qty',
                         '{{%cart_item}}.`total` AS total',
@@ -143,6 +147,9 @@ class Cart extends Component
                 $cartItems[$row['productId']]['productImage'] = $row['productImage'];
                 $cartItems[$row['productId']]['productName'] = $row['productName'];
                 $cartItems[$row['productId']]['productUrl'] = $row['productUrl'];
+                $cartItems[$row['productId']]['productType'] = $row['productType'];
+                $cartItems[$row['productId']]['manufacture'] = $row['manufacture'];
+                $cartItems[$row['productId']]['manufactureSku'] = $row['manufactureSku'];
                 $cartItems[$row['productId']]['colorId'] = ($row['colorId'] === 0) ? null : $row['colorId'];
                 $cartItems[$row['productId']]['colorImage'] = $row['colorImage'];
                 $cartItems[$row['productId']]['cost'] = $row['sizeCost'];
@@ -223,7 +230,6 @@ class Cart extends Component
         $userId = Yii::$app->session->get('userId');
 
         $user = User::find();
-
         if (!$userId) {
             $user = $user->where('email = :email', ['email' => $orderData['email']])
                 ->one();
@@ -231,7 +237,6 @@ class Cart extends Component
             $user = $user->where('id = :id', ['id' => $userId])
                 ->one();
         }
-
         if (!$user) {
             $user = new User();
             $user->email = $orderData['email'];
@@ -263,6 +268,7 @@ class Cart extends Component
         $order = CartOrder::find()
             ->where('guid = :guid ', ['guid' => $cartGuid])
             ->one();
+
         if ($order && $orderData) {
             $loader = new \Twig_Loader_Filesystem(Yii::getAlias('@common/mail'));
             $twig = new \Twig_Environment($loader, array(
@@ -275,7 +281,6 @@ class Cart extends Component
                 $item['productImage'] = str_replace('60__', '250x250__', $item['productImage']);
             }
 
-//            var_dump($user); die();
 
             $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
             $absolute_order_path = $staticFolder . '/' . $relative_order_path;
@@ -287,7 +292,6 @@ class Cart extends Component
             if (!file_exists($absolute_order_path)) {
                 mkdir($absolute_order_path, 0755, true);
             }
-
 
 
             if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
@@ -324,12 +328,22 @@ class Cart extends Component
             }
 
 
-            $htmlMessage =  $twig->render(
+            $htmlMessage = $twig->render(
                 'order/confirm.twig',
                 array(
                     'order' => $order,
                     'orderDate' => date('d-m-Y', strtotime($order->date)),
-                    'siteName' => Yii::getAlias('@protocol') .'://'. Yii::getAlias('@domain'),
+                    'siteName' => Yii::getAlias('@protocol') . '://' . Yii::getAlias('@domain'),
+                    'user' => $user,
+                    'items' => $items['items']
+                )
+            );
+            $htmlMessageAdmin = $twig->render(
+                'order/confirmAdmin.twig',
+                array(
+                    'order' => $order,
+                    'orderDate' => date('d-m-Y', strtotime($order->date)),
+                    'siteName' => Yii::getAlias('@protocol') . '://' . Yii::getAlias('@domain'),
                     'user' => $user,
                     'items' => $items['items']
                 )
@@ -346,15 +360,17 @@ class Cart extends Component
                     'name' => $user->name
                 ],
                 Yii::$app->params['replyToMail']['mail'],
-                'Ваш заказ принят', $htmlMessage, $order->guid);
+                'Ваш заказ принят', $htmlMessage, $order->guid
+            );
 
             $this->sendMail([
-                    'email' => Yii::$app->params['replyToMail']['mail'],
-                    'guid' => null,
-                    'name' => null
-                ],
+                'email' => Yii::$app->params['replyToMail']['mail'],
+                'guid' => null,
+                'name' => null
+            ],
                 $order->email,
-                'Поступил заказ', $htmlMessage);
+                'Поступил заказ', $htmlMessageAdmin
+            );
 
             // Заказ оформлен, очищаем сохранённую GUID заказа
             Yii::$app->session->remove('cartGuid');
@@ -392,7 +408,6 @@ class Cart extends Component
     public function put($items = [])
     {
         $order = null;
-
         $cartGuid = Yii::$app->session->get('cartGuid');
 
         if ($cartGuid) {
@@ -473,9 +488,9 @@ class Cart extends Component
         }
     }
 
-    protected function insertRow($rowData)
+    protected function insertRow($itemData)
     {
-        $idParts = explode('_', $rowData['id']);
+        $idParts = explode('_', $itemData['id']);
         $productId = (int)$idParts[0];
         $colorId = (int)$idParts[1];
         $sizeId = $idParts[2];
@@ -483,6 +498,9 @@ class Cart extends Component
         $resultSet = (new Query())
             ->select([
                 '{{%product}}.`only_all_sizes`          AS `only_all_sizes`',
+                '{{%product}}.`type`                 AS `product_type`',
+                '{{%product}}.`manufacture`                 AS `manufacture`',
+                '{{%product}}.`manufacture_sku`                 AS `manufacture_sku`',
                 '{{%product_size}}.`id`                 AS `size_id`',
                 '{{%product_size}}.`price`              AS `size_cost`',
                 '{{%product_size}}.`qty`                AS `size_qty`',
@@ -509,15 +527,18 @@ class Cart extends Component
             ->all();
         foreach ($resultSet as $row) {
             $itemRow = new CartItem();
-            $itemRow->product_id = (int)$rowData['productId'];
-            $itemRow->product_name = $rowData['productName'];
-            $itemRow->product_image = $rowData['productImage'];
+            $itemRow->product_id = (int)$itemData['productId'];
+            $itemRow->product_name = $itemData['productName'];
+            $itemRow->product_image = $itemData['productImage'];
+            $itemRow->manufacture = $row['manufacture'];
+            $itemRow->manufacture_sku = $row['manufacture_sku'];
             $itemRow->product_url = $row['url'];
-            $itemRow->qty = (int)$rowData['qty'];
-            $itemRow->total = (int)$rowData['qty'] * (int)$row['size_cost'];
+            $itemRow->product_type = $row['product_type'];
+            $itemRow->qty = (int)$itemData['qty'];
+            $itemRow->total = (int)$itemData['qty'] * (int)$row['size_cost'];
 
             $itemRow->color_id = $colorId;
-            $itemRow->color_image = $rowData['colorImage'];
+            $itemRow->color_image = $itemData['colorImage'];
             $itemRow->color_name = '';
 
             $itemRow->size_id = $row['size_id'];
@@ -525,8 +546,8 @@ class Cart extends Component
             $itemRow->size_cost = (int)$row['size_cost'];
 
             $itemRow->only_all_sizes = (int)$row['only_all_sizes'];
-            $itemRow->row_id = $rowData['rowId'];
-            $itemRow->order_id = $rowData['orderId'];
+            $itemRow->row_id = $itemData['rowId'];
+            $itemRow->order_id = $itemData['orderId'];
 
             if (!$itemRow->save()) {
                 Yii::error(
