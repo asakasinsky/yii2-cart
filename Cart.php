@@ -37,12 +37,12 @@ class Cart extends Component
 
     private function _sortByOrder($a, $b)
     {
-        return strcmp((int)$a['order'], (int)$b['order']);
+        return strnatcmp((int)$a['order'], (int)$b['order']);
     }
 
     private function _sortById($a, $b)
     {
-        return strcmp($a['id'], $b['id']);
+        return strnatcmp($a['id'], $b['id']);
     }
 
     public function mail()
