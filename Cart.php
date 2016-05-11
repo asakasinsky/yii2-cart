@@ -276,9 +276,9 @@ class Cart extends Component
                 'auto_reload' => TRUE
             ));
             $items = $this->get($order->guid);
-
+            $imgPrefix = (Yii::getAlias('@imagePrefixOrder', false)) ? Yii::getAlias('@imagePrefixOrder', false) :  '200__';
             foreach ($items['items'] as &$item) {
-                $item['productImage'] = str_replace('60__', '250x250__', $item['productImage']);
+                $item['productImage'] = str_replace('60__', $imgPrefix, $item['productImage']);
             }
 
 
@@ -355,10 +355,10 @@ class Cart extends Component
             fclose($fp);
 
             $this->sendMail([
-                    'email' => $order->email,
-                    'guid' => $user->guid,
-                    'name' => $user->name
-                ],
+                'email' => $order->email,
+                'guid' => $user->guid,
+                'name' => $user->name
+            ],
                 Yii::$app->params['replyToMail']['mail'],
                 'Ваш заказ принят', $htmlMessage, $order->guid
             );
