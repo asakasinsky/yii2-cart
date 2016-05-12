@@ -542,7 +542,8 @@ class Cart extends Component
             $itemRow->color_name = '';
 
             $itemRow->size_id = $row['size_id'];
-            $itemRow->size_name = $row['size_name'];
+//            $itemRow->size_name = $row['size_name'];
+            $itemRow->size_name = $itemData['sizeName'];
             $itemRow->size_cost = (int)$row['size_cost'];
 
             $itemRow->only_all_sizes = (int)$row['only_all_sizes'];
