@@ -51,25 +51,35 @@ class Cart extends Component
 
     }
 
-    public function sendMail($recepient, $replyTo, $subject, $htmlMessage, $listId = null)
+    public function sendMail($recipient, $replyTo, $subject, $htmlMessage, $listId = null)
     {
         /** @var \yii\swiftmailer\Mailer $mailer */
         $mailer = Yii::$app->mailer;
-
+        $result = [
+            'result' => true,
+            'message' => ''
+        ];
         $from = [
             Yii::$app->params['noReplyMail']['mail'] => Yii::$app->params['noReplyMail']['name']
         ];
         $returnPath = Yii::$app->params['commonMail']['mail'];
 
-        $message = Yii::$app->mailer->compose()
-            ->setFrom($from)
-            ->setTo($recepient['email'])
-            ->setSubject($subject)
-            ->setHtmlBody($htmlMessage);
+        $message = Yii::$app->mailer->compose();
+        try {
+            $message->setFrom($from)
+                ->setTo($recipient['email'])
+                ->setSubject($subject)
+                ->setHtmlBody($htmlMessage);
+        } catch(\Swift_RfcComplianceException $e) {
+            $result['result'] = false;
+            $result['message'] = $e->getMessage();
+            return $result;
+        }
+
         $headers = $message->getSwiftMessage()->getHeaders();
 
-        if (isset($recepient['guid'])) {
-            $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') . '://' . Yii::getAlias('@domain') . '/mail/unsubscribe/' . $recepient['guid']);
+        if (isset($recipient['guid'])) {
+            $headers->addTextHeader('List-Unsubscribe', Yii::getAlias('@protocol') . '://' . Yii::getAlias('@domain') . '/mail/unsubscribe/' . $recipient['guid']);
         }
         if ($listId) {
             $headers->addTextHeader('List-id', 'order-' . $listId);
@@ -77,7 +87,15 @@ class Cart extends Component
 
         $headers->addTextHeader('Reply-To', $replyTo);
         $headers->addTextHeader('Return-Path', $returnPath);
-        $message->send();
+
+        try{
+            $message->send();
+        }catch(\Swift_TransportException $e){
+            $result['result'] = false;
+            $result['message'] = $e->getMessage();
+            return $result;
+        }
+        return $result;
     }
 
     public function get($cartGuid = null)
@@ -226,6 +244,7 @@ class Cart extends Component
 
     public function checkout($orderData = [])
     {
+        $orderData = array_map('trim', $orderData);
         $user = null;
         $userId = Yii::$app->session->get('userId');
 
@@ -237,6 +256,7 @@ class Cart extends Component
             $user = $user->where('id = :id', ['id' => $userId])
                 ->one();
         }
+
         if (!$user) {
             $user = new User();
             $user->email = $orderData['email'];
@@ -245,7 +265,10 @@ class Cart extends Component
             $user->guid = Utils::createGuid();
             if (!$user->save()) {
                 Yii::error(
-                    $user->getErrors(),
+                    [
+                        'info' => 'Проблема создания пользователя в БД',
+                        'message' => $user->getErrors()
+                    ],
                     __LINE__
                 );
             } else {
@@ -257,7 +280,6 @@ class Cart extends Component
             Yii::$app->session->set('userId', $userId);
         }
         $this->device->linkUser($userId);
-
 
         $staticFolder = Yii::getAlias('@staticFolder');
         $result = [
@@ -278,9 +300,8 @@ class Cart extends Component
             $items = $this->get($order->guid);
             $imgPrefix = (Yii::getAlias('@imagePrefixOrder', false)) ? Yii::getAlias('@imagePrefixOrder', false) :  '200__';
             foreach ($items['items'] as &$item) {
-                $item['productImage'] = str_replace('60__', $imgPrefix, $item['productImage']);
+                $item['productImage'] = str_replace('68_', $imgPrefix, $item['productImage']);
             }
-
 
             $relative_order_path = Yii::getAlias('@ordersFolder') . '/' . $cartGuid[0] . $cartGuid[1] . '/' . $cartGuid[2] . $cartGuid[3] . '/' . $cartGuid[4] . $cartGuid[5];
             $absolute_order_path = $staticFolder . '/' . $relative_order_path;
@@ -320,7 +341,11 @@ class Cart extends Component
 
             if (!$order->save()) {
                 Yii::error(
-                    $order->getErrors(),
+                    [
+                        'info' => 'Проблема сохранения заказа в БД',
+                        'orderId' => $order->id,
+                        'message' => $order->getErrors()
+                    ],
                     __LINE__
                 );
                 $result['result'] = 'error';
@@ -354,7 +379,7 @@ class Cart extends Component
             fwrite($fp, $content);
             fclose($fp);
 
-            $this->sendMail([
+            $send = $this->sendMail([
                 'email' => $order->email,
                 'guid' => $user->guid,
                 'name' => $user->name
@@ -363,7 +388,18 @@ class Cart extends Component
                 'Ваш заказ принят', $htmlMessage, $order->guid
             );
 
-            $this->sendMail([
+            if (! $send['result']) {
+                Yii::error(
+                    [
+                        'info' => 'Проблема с отправкой уведомления о заказе клиенту',
+                        'orderId' => $order->id,
+                        'message' => $send['message']
+                    ],
+                    __LINE__
+                );
+            }
+
+            $send = $this->sendMail([
                 'email' => Yii::$app->params['replyToMail']['mail'],
                 'guid' => null,
                 'name' => null
@@ -371,6 +407,17 @@ class Cart extends Component
                 $order->email,
                 'Поступил заказ', $htmlMessageAdmin
             );
+
+            if (! $send['result']) {
+                Yii::error(
+                    [
+                        'info' => 'Проблема с отправкой уведомления о заказе админу',
+                        'orderId' => $order->id,
+                        'message' => $send['message']
+                    ],
+                    __LINE__
+                );
+            }
 
             // Заказ оформлен, очищаем сохранённую GUID заказа
             Yii::$app->session->remove('cartGuid');
