@@ -4,7 +4,8 @@ namespace asakasinsky\cart\models;
 
 use Yii;
 use common\models\User;
-
+use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
 
 /**
  * This is the model class for table "c_device".
@@ -21,17 +22,32 @@ use common\models\User;
  * @property string $client_name
  * @property string $client_version
  * @property string $pointing_device
+ * @property integer $created_at
+ * @property integer $updated_at
  *
  * @property User $user
  */
-class Device extends \yii\db\ActiveRecord
+class Device extends ActiveRecord
 {
     /**
      * @inheritdoc
      */
     public static function tableName()
     {
-        return 'c_device';
+        return '{{%device}}';
+    }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::className(),
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at', 'updated_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+            ],
+        ];
     }
 
     /**
@@ -40,7 +56,7 @@ class Device extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['user_id'], 'integer'],
+            [['user_id', 'created_at', 'updated_at'], 'integer'],
             [['guid'], 'string', 'max' => 36],
             [['device', 'brand', 'os_name', 'client_name'], 'string', 'max' => 30],
             [['model'], 'string', 'max' => 128],
@@ -69,7 +85,17 @@ class Device extends \yii\db\ActiveRecord
             'client_name' => 'Client Name',
             'client_version' => 'Client Version',
             'pointing_device' => 'Pointing Device',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCartOrders()
+    {
+        return $this->hasMany(CartOrder::className(), ['device_id' => 'id']);
     }
 
     /**
