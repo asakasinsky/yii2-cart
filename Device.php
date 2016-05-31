@@ -128,7 +128,10 @@ class Device extends Component
         if (! $device->save())
         {
             Yii::error(
-                $device->getErrors(),
+                [
+                    'info' => 'Проблема создания устройства в БД',
+                    'message' => $device->getErrors()
+                ],
                 __LINE__
             );
             return $device->getErrors();
