@@ -34,6 +34,7 @@ use yii\behaviors\TimestampBehavior;
  * @property string $status_attachment
  * @property integer $created_at
  * @property integer $updated_at
+ * @property integer $emailValidation
  *
  * @property CartItem[] $cartItems
  */
@@ -56,8 +57,6 @@ class CartOrder extends ActiveRecord
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_at', 'updated_at'],
                     ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
                 ],
-                // if you're using datetime instead of UNIX timestamp:
-                // 'value' => new Expression('NOW()'),
             ],
         ];
     }
@@ -68,13 +67,14 @@ class CartOrder extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'device_id', 'status', 'status_timestamp', 'total', 'qty', 'ip', 'created_at', 'updated_at'], 'integer'],
+            [['user_id', 'device_id', 'status', 'status_timestamp', 'total', 'qty', 'ip', 'created_at', 'updated_at', 'emailValidation'], 'integer'],
             [['comment', 'note', 'status_message'], 'string'],
             [['date', 'payment_date'], 'safe'],
-//            [['created_at', 'updated_at'], 'required'],
             [['name', 'phone', 'email', 'delivery', 'order_file', 'status_attachment'], 'string', 'max' => 255],
             [['guid'], 'string', 'max' => 36],
             [['recipient_name', 'recipient_passport', 'recipient_address'], 'string', 'max' => 512],
+            [['device_id'], 'exist', 'skipOnError' => true, 'targetClass' => Device::className(), 'targetAttribute' => ['device_id' => 'id']],
+//            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
 
@@ -109,6 +109,7 @@ class CartOrder extends ActiveRecord
             'status_attachment' => 'Status Attachment',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
+            'emailValidation' => 'Email Validation',
         ];
     }
 
@@ -119,4 +120,19 @@ class CartOrder extends ActiveRecord
     {
         return $this->hasMany(CartItem::className(), ['order_id' => 'id']);
     }
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDevice()
+    {
+        return $this->hasOne(Device::className(), ['id' => 'device_id']);
+    }
+
+//    /**
+//     * @return \yii\db\ActiveQuery
+//     */
+//    public function getUser()
+//    {
+//        return $this->hasOne(User::className(), ['id' => 'user_id']);
+//    }
 }
