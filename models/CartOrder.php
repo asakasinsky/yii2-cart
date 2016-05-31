@@ -34,7 +34,7 @@ use yii\behaviors\TimestampBehavior;
  * @property string $status_attachment
  * @property integer $created_at
  * @property integer $updated_at
- * @property integer $emailValidation
+ * @property integer $email_validation
  *
  * @property CartItem[] $cartItems
  */
@@ -67,7 +67,7 @@ class CartOrder extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'device_id', 'status', 'status_timestamp', 'total', 'qty', 'ip', 'created_at', 'updated_at', 'emailValidation'], 'integer'],
+            [['user_id', 'device_id', 'status', 'status_timestamp', 'total', 'qty', 'ip', 'created_at', 'updated_at', 'email_validation'], 'integer'],
             [['comment', 'note', 'status_message'], 'string'],
             [['date', 'payment_date'], 'safe'],
             [['name', 'phone', 'email', 'delivery', 'order_file', 'status_attachment'], 'string', 'max' => 255],
@@ -109,7 +109,7 @@ class CartOrder extends ActiveRecord
             'status_attachment' => 'Status Attachment',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
-            'emailValidation' => 'Email Validation',
+            'email_validation' => 'Email Validation',
         ];
     }
 
