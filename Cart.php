@@ -4,16 +4,11 @@ namespace asakasinsky\cart;
 
 use Yii;
 use yii\base\Component;
+use yii\validators\EmailValidator;
 use \yii\db\Query;
-use \yii\db\Expression;
 use asakasinsky\cart\models\CartItem;
 use asakasinsky\cart\models\CartOrder;
 use common\models\User;
-use asakasinsky\cart\Device;
-
-//use yii\twig\ViewRenderer;
-
-//use yii\twig;
 
 class Cart extends Component
 {
@@ -244,7 +239,10 @@ class Cart extends Component
 
     public function checkout($orderData = [])
     {
+        $validator = new EmailValidator();
         $orderData = array_map('trim', $orderData);
+        $orderData['emailValidation'] = ($validator->validate($orderData['email']))? 1 : 0;
+
         $user = null;
         $userId = Yii::$app->session->get('userId');
 
@@ -338,6 +336,7 @@ class Cart extends Component
             $order->ip = ip2long($ip);
             $order->order_file = $relative_order_file;
             $order->user_id = $userId;
+            $order->emailValidation = $orderData['emailValidation'];
 
             if (!$order->save()) {
                 Yii::error(
