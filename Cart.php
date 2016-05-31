@@ -241,7 +241,7 @@ class Cart extends Component
     {
         $validator = new EmailValidator();
         $orderData = array_map('trim', $orderData);
-        $orderData['emailValidation'] = ($validator->validate($orderData['email']))? 1 : 0;
+        $orderData['email_validation'] = ($validator->validate($orderData['email']))? 1 : 0;
 
         $user = null;
         $userId = Yii::$app->session->get('userId');
@@ -336,7 +336,7 @@ class Cart extends Component
             $order->ip = ip2long($ip);
             $order->order_file = $relative_order_file;
             $order->user_id = $userId;
-            $order->emailValidation = $orderData['emailValidation'];
+            $order->email_validation = $orderData['email_validation'];
 
             if (!$order->save()) {
                 Yii::error(
